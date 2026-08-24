@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web3 Poster Studio V12 - The Art Director</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&family=JetBrains+Mono:wght@400;700;800&family=Space+Grotesk:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        /* 
+         * GLOBAL ENGINE VARIABLES 
+         * These define the structure before 'Movement' skins are applied
+         */
+        :root {
+            --bg-color: #F4F4F4;
+            --ink-color: #121212;
+            --accent-color: #DE3824;
+            
+            --grid-opacity-pct: 25%;
+            --grid-color: color-mix(in srgb, var(--ink-color) var(--grid-opacity-pct), var(--bg-color));
+            --muted-ink: color-mix(in srgb, var(--ink-color) 60%, var(--bg-color));
+            
+            --m: 3; /* Master margin in cqw */
+            --micro-size: 2cqw;
+            --noise-intensity: 0.08;
+
+            /* Typography */
+            --user-title-scale: 1;
+            --smart-title-scale: 1; 
+            --final-title-scale: calc(var(--user-title-scale) * var(--smart-title-scale));
+            --tracking: -0.05;
+            --leading: 0.85;
+
+            /* Grid Harmonics */
+            --v1: 25; --v2: 75; --v3: 50; 
+            --h1: 25; --h2: 75; --h3: 50;
+            --stagger: 15; 
+        }
+
+        /* 
+         * MOVEMENT SKINS (ART DIRECTION)
+         * These instantly override the physics and textures of the canvas
+         */
+        
+        /* 1. SWISS (Default) */
+        .poster-canvas[data-movement="swiss"] {
+            --font-primary: 'Inter', sans-serif;
+            --grid-thickness: 1px;
+            --grid-style: solid;
+            --blend-mode: multiply;
+            --geo-blur: 0px;
+        }
+
+        /* 2. BRUTALISM */
+        .poster-canvas[data-movement="brutalism"] {
+            --font-primary: 'Times New Roman', serif;
+            --grid-thickness: 3px;
+            --grid-style: solid;
+            --grid-color: var(--ink-color); /* Harsh solid black lines */
+            --blend-mode: normal;
+            --geo-blur: 0px;
+            --m: 0; /* Destroy margins, bleed to edge */
+        }
+        .poster-canvas[data-movement="brutalism"] .t-massive { font-stretch: condensed; }
+
+        /* 3. ACID GRAPHICS */
+        .poster-canvas[data-movement="acid"] {
+            --font-primary: 'Space Grotesk', sans-serif;
+            --grid-thickness: 0px; /* Hide grid */
+            --blend-mode: difference; /* Invert colors overlapping */
+            --geo-blur: 40px; /* Glowing geometries */
+        }
+        .poster-canvas[data-movement="acid"] .t-massive { transform: scaleY(1.5); transform-origin: top left; }
+
+        /* 4. TERMINAL / GENERATIVE */
+        .poster-canvas[data-movement="terminal"] {
+            --font-primary: 'JetBrains Mono', monospace;
+            --grid-thickness: 1px;
+            --grid-style: dashed;
+            --blend-mode: normal;
+            --geo-blur: 0px;
+        }
+
+
+        body { margin: 0; overflow: hidden; background-color: #050505; color: #E0E0E0; font-family: 'Inter', sans-serif;}
+        .app-layout { display: flex; width: 100vw; height: 100vh; }
+        
+        /* ----- THE CANVAS STAGE ----- */
+        .stage { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; position: relative; container-type: size; background-image: radial-gradient(circle at center, #1a1a1a 0%, #050505 100%);}
+        
+        .poster-canvas {
+            position: relative; width: min(100cqw, 70cqh); height: min(142.8cqw, 100cqh); 
+            container-type: inline-size; box-shadow: 0 40px 100px -20px rgba(0,0,0,1);
+            background-color: var(--bg-color); color: var(--ink-color);
+            font-family: var(--font-primary); overflow: hidden;
+            transition: background-color 0.4s ease, color 0.4s ease;
+        }
+
+        /* ----- SPATIAL MATRIX ----- */
+        .safe-area { position: absolute; top: calc(var(--m) * 1cqw); bottom: calc(var(--m) * 1cqw); left: calc(var(--m) * 1cqw); right: calc(var(--m) * 1cqw); z-index: 10; transition: all 0.4s ease;}
+        .micro-grid { position: absolute; inset: 0; pointer-events: none; z-index: 1; opacity: 0.15;}
+        .micro-grid[data-style="none"] { display: none; }
+        .micro-grid[data-style="blueprint"] { background-size: var(--micro-size) var(--micro-size); background-image: linear-gradient(to right, var(--ink-color) 1px, transparent 1px), linear-gradient(to bottom, var(--ink-color) 1px, transparent 1px); }
+        .micro-grid[data-style="dots"] { background-size: var(--micro-size) var(--micro-size); background-image: radial-gradient(var(--ink-color) 1.5px, transparent 1.5px); }
+        
+        /* ----- TYPOGRAPHY ----- */
+        .t-massive { font-size: calc(22cqw * var(--final-title-scale)); line-height: var(--leading); letter-spacing: calc(var(--tracking) * 1em); font-weight: 900; text-transform: uppercase; transition: transform 0.3s ease;}
+        .t-display { font-size: calc(15cqw * var(--final-title-scale)); line-height: var(--leading); letter-spacing: calc(var(--tracking) * 1em); font-weight: 800; text-transform: uppercase;}
+        .t-stack { font-size: calc(26cqw * var(--final-title-scale)); line-height: var(--leading); letter-spacing: calc(var(--tracking) * 1em); font-weight: 900; text-transform: uppercase;}
+        .t-body { font-size: 2.2cqw; line-height: 1.3; font-weight: 500; }
+        .t-mono { font-family: 'JetBrains Mono', monospace; font-size: 1.8cqw; line-height: 1.2; letter-spacing: 0;}
+        
+        .hyphenate-active .t-massive, .hyphenate-active .t-display, .hyphenate-active .t-body { word-break: break-all; hyphens: auto; }
+
+        /* ----- FLUID ELEMENTS & PHYSICS ----- */
+        .fluid-element { transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+        .grid-line-v { position: absolute; top: 0; bottom: 0; border-left: var(--grid-thickness) var(--grid-style) var(--grid-color); }
+        .grid-line-h { position: absolute; left: 0; right: 0; border-top: var(--grid-thickness) var(--grid-style) var(--grid-color); }
+        
+        /* Geometry responds to Movement Skins */
+        .geo-element { background-color: var(--accent-color); mix-blend-mode: var(--blend-mode); filter: blur(var(--geo-blur)); transition: background-color 0.4s, filter 0.8s ease, mix-blend-mode 0.4s;}
+        
+        .shape-cross { position: absolute; width: 8cqw; height: 8cqw; transform: translate(-50%, -50%); mix-blend-mode: var(--blend-mode);}
+        .shape-cross::before, .shape-cross::after { content: ''; position: absolute; background-color: var(--ink-color); }
+        .shape-cross::before { top: 3cqw; left: 0; right: 0; height: 2cqw; filter: blur(var(--geo-blur)); }
+        .shape-cross::after { left: 3cqw; top: 0; bottom: 0; width: 2cqw; filter: blur(var(--geo-blur)); }
+        
+        .noise { position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E"); opacity: var(--noise-intensity); pointer-events: none; mix-blend-mode: multiply; z-index: 100;}
+
+        /* ----- UI DASHBOARD ----- */
+        .sidebar { width: 360px; background: #0A0A0A; border-left: 1px solid #222; display: flex; flex-direction: column; z-index: 50; }
+        .tab-bar { display: flex; border-bottom: 1px solid #222; background: #111;}
+        .tab-btn { flex: 1; padding: 12px 0; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; color: #666; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s;}
+        .tab-btn.active { color: white; border-bottom: 2px solid white; background: #0A0A0A;}
+        .tab-btn:hover:not(.active) { color: #aaa; background: #1a1a1a;}
+        
+        .tab-content { display: none; flex-direction: column; flex: 1; overflow-y: auto; }
+        .tab-content.active { display: flex; }
+
+        .control-group { border-bottom: 1px solid #1a1a1a; padding: 20px; }
+        .input-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #888; text-transform: uppercase; margin-bottom: 8px; display: flex; justify-content: space-between;}
+        
+        input[type="text"] { background: #111; border: 1px solid #333; color: white; padding: 10px 12px; border-radius: 4px; font-size: 12px; width: 100%; outline: none; font-family: 'Inter', sans-serif;}
+        input[type="text"]:focus { border-color: #666; }
+        select { background: #111; border: 1px solid #333; color: white; padding: 8px 10px; border-radius: 4px; font-size: 12px; width: 100%; outline: none; cursor: pointer; font-family: 'Inter', sans-serif;}
+        input[type="range"] { -webkit-appearance: none; width: 100%; height: 2px; background: #333; outline: none; cursor: pointer; margin: 8px 0;}
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: white; border-radius: 50%; cursor: pointer; }
+
+        .btn-primary { background: white; color: black; padding: 12px; border-radius: 4px; font-weight: 800; font-size: 11px; text-transform: uppercase; cursor: pointer; transition: transform 0.1s, opacity 0.2s; width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px;}
+        .btn-primary:active { transform: scale(0.98); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .loader { border: 2px solid rgba(0,0,0,0.2); border-left-color: #000; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; display: none; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="app-layout">
+        <div class="stage">
+            <div id="render-target" class="poster-canvas" data-movement="swiss">
+                <!-- Relational HTML Injected Here -->
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <div class="p-5 border-b border-[#222]">
+                <h2 class="font-bold tracking-tight text-white text-lg leading-tight">STUDIO_V12</h2>
+                <p class="font-mono text-[9px] text-[#888] uppercase">The Art Director Toolkit</p>
+            </div>
+
+            <!-- TAB NAVIGATION -->
+            <div class="tab-bar">
+                <div class="tab-btn active" onclick="UI.switchTab('ai')">AI CORE</div>
+                <div class="tab-btn" onclick="UI.switchTab('style')">STYLE</div>
+                <div class="tab-btn" onclick="UI.switchTab('arch')">ARCH</div>
+                <div class="tab-btn" onclick="UI.switchTab('type')">TYPE</div>
+                <div class="tab-btn" onclick="UI.switchTab('phys')">PHYSICS</div>
+            </div>
+
+            <!-- TAB 1: AI CORE (Data) -->
+            <div id="tab-ai" class="tab-content active no-scrollbar">
+                <div class="control-group bg-[#111]">
+                    <div class="input-label !mb-2"><span class="text-white">Semantic AI Curator</span></div>
+                    <input type="text" id="ai-prompt" placeholder="e.g., Cyberpunk, DeFi, Quantum..." value="Zero Knowledge Proofs" class="mb-2">
+                    <button class="btn-primary !bg-[#222] !text-white !border !border-[#333]" id="btn-generate" onclick="AI.generateTheme()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                        <span>Synthesize Concept</span>
+                        <div class="loader" id="ai-loader"></div>
+                    </button>
+                    
+                    <div class="input-label !mt-4 !mb-2"><span class="text-white">Active Payload</span></div>
+                    <div id="ai-payload-preview" class="font-mono text-[9px] text-[#666] uppercase p-3 bg-[#0A0A0A] rounded border border-[#222]">
+                        Awaiting Synthesis...
+                    </div>
+                </div>
+                <!-- Manual Overrides -->
+                <div class="control-group border-none">
+                    <div class="input-label !mb-2"><span class="text-white">Manual Overrides</span></div>
+                    <input type="text" id="man-t1" placeholder="Title Line 1" class="mb-2" oninput="Engine.updateState('content', 'title0', this.value)">
+                    <input type="text" id="man-t2" placeholder="Title Line 2" class="mb-2" oninput="Engine.updateState('content', 'title1', this.value)">
+                    <input type="text" id="man-payload" placeholder="Payload/Subtitle" class="mb-2" oninput="Engine.updateState('content', 'payload', this.value)">
+                </div>
+            </div>
+
+            <!-- TAB 2: ART DIRECTION (Style) -->
+            <div id="tab-style" class="tab-content no-scrollbar">
+                <div class="control-group">
+                    <div class="input-label mb-2"><span class="text-white">Design Movement</span></div>
+                    <p class="text-xs text-[#888] mb-3">Instantly apply a new visual skin and physics rulebook to the current architecture.</p>
+                    <select id="ctrl-movement" onchange="Engine.updateState('style', 'movement', this.value)" class="mb-2">
+                        <option value="swiss">🇨🇭 Swiss International (Clean, Precise)</option>
+                        <option value="acid">💊 Acid Graphics (Distorted, Glowing)</option>
+                        <option value="brutalism">🛹 Web Brutalism (Raw, Harsh)</option>
+                        <option value="terminal">💻 Generative Terminal (Code/Tech)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- TAB 3: ARCHITECTURE (Grid/Map) -->
+            <div id="tab-arch" class="tab-content no-scrollbar">
+                <div class="control-group bg-[#111]">
+                    <div class="input-label mb-2"><span class="text-white">Grid Topology</span></div>
+                    <select id="ctrl-layout" onchange="Engine.updateState('architecture', 'layout', this.value)" class="mb-4">
+                        <option value="anchor">Anchor System</option>
+                        <option value="matrix">Data Matrix</option>
+                        <option value="brutalist">Brutalist Stack</option>
+                        <option value="strict-4-col">Strict 4-Col Grid</option>
+                        <option value="type-block">Typographic Block</option>
+                    </select>
+                    
+                    <button class="btn-primary !bg-[#white] !text-black" onclick="Engine.mutateHarmonics()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        Snap Coordinates
+                    </button>
+                    <p class="text-[9px] text-[#666] mt-2 text-center">Binds grid to random mathematical proportions.</p>
+                </div>
+                
+                <div class="control-group">
+                    <label class="input-label !mb-0"><span>Master Margin (Safe Area)</span> <span id="val-margin">3cqw</span></label>
+                    <input type="range" min="0" max="15" step="0.5" value="3" oninput="Engine.updateState('physics', 'margin', this.value)">
+                </div>
+
+                <div class="control-group border-none bg-[#111]">
+                    <div class="input-label !mb-3"><span class="text-white">Manual Coordinate Overrides</span></div>
+                    <label class="input-label !mb-0"><span>Vertical Axis 1</span></label>
+                    <input type="range" id="ctrl-v1" min="0" max="100" step="1" value="25" oninput="Engine.updateState('physics', 'v1', this.value)">
+                    <label class="input-label !mb-0 mt-2"><span>Vertical Axis 2</span></label>
+                    <input type="range" id="ctrl-v2" min="0" max="100" step="1" value="75" oninput="Engine.updateState('physics', 'v2', this.value)">
+                    <label class="input-label !mb-0 mt-2"><span>Horizontal Axis 1</span></label>
+                    <input type="range" id="ctrl-h1" min="0" max="100" step="1" value="25" oninput="Engine.updateState('physics', 'h1', this.value)">
+                </div>
+            </div>
+
+            <!-- TAB 4: TYPOGRAPHY -->
+            <div id="tab-type" class="tab-content no-scrollbar">
+                <div class="control-group border-none">
+                    <label class="input-label !mb-0"><span>Title Scale</span> <span id="val-scale">1.0x</span></label>
+                    <input type="range" min="0.5" max="1.5" step="0.05" value="1" class="mb-4" oninput="updateCSSVar('--user-title-scale', this.value); document.getElementById('val-scale').innerText = this.value + 'x';">
+                    
+                    <label class="input-label !mb-0"><span>Tracking (Letter Spacing)</span> <span id="val-track">-0.05em</span></label>
+                    <input type="range" min="-0.12" max="0.1" step="0.01" value="-0.05" class="mb-4" oninput="updateCSSVar('--tracking', this.value); document.getElementById('val-track').innerText = this.value + 'em';">
+                    
+                    <label class="input-label !mb-0"><span>Leading (Line Height)</span> <span id="val-lead">0.85</span></label>
+                    <input type="range" min="0.7" max="1.2" step="0.05" value="0.85" class="mb-4" oninput="updateCSSVar('--leading', this.value); document.getElementById('val-lead').innerText = this.value;">
+
+                    <label class="flex items-center gap-2 cursor-pointer mt-4 group">
+                        <input type="checkbox" onchange="document.getElementById('render-target').classList.toggle('hyphenate-active', this.checked)" class="accent-white cursor-pointer w-4 h-4 bg-[#111] border-[#333]">
+                        <span class="font-mono text-xs text-[#888] group-hover:text-white transition-colors">Force Aggressive Hyphenation</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- TAB 5: PHYSICS -->
+            <div id="tab-physics" class="tab-content no-scrollbar">
+                <div class="control-group bg-[#111]">
+                    <div class="input-label mb-3"><span class="text-white">Smart Color Engine</span></div>
+                    <div class="flex gap-3 mb-2">
+                        <div class="flex-1"><label class="text-[9px] text-[#666] mb-1 block">Canvas</label><input type="color" id="ctrl-bg" class="w-full h-8 cursor-pointer bg-transparent rounded border-none p-0" oninput="Engine.updateState('physics', 'bg', this.value)"></div>
+                        <div class="flex-1"><label class="text-[9px] text-[#666] mb-1 block">Ink</label><input type="color" id="ctrl-ink" class="w-full h-8 cursor-pointer bg-transparent rounded border-none p-0" oninput="Engine.updateState('physics', 'ink', this.value)"></div>
+                        <div class="flex-1"><label class="text-[9px] text-[#666] mb-1 block">Accent</label><input type="color" id="ctrl-accent" class="w-full h-8 cursor-pointer bg-transparent rounded border-none p-0" oninput="Engine.updateState('physics', 'accent', this.value)"></div>
+                    </div>
+                </div>
+
+                <div class="control-group bg-[#111] border-t border-[#222]">
+                    <div class="input-label mb-2"><span class="text-white">Micro-Grid Background</span></div>
+                    <select onchange="document.getElementById('micro-grid').setAttribute('data-style', this.value)" class="mb-2">
+                        <option value="none">No Micro-Grid</option>
+                        <option value="blueprint">Blueprint Matrix</option>
+                        <option value="dots">Technical Dots</option>
+                    </select>
+                    <label class="input-label !mb-0 !mt-3"><span>Structural Lines Opacity</span> <span id="val-grid-op">25%</span></label>
+                    <input type="range" min="0" max="100" step="5" value="25" oninput="updateCSSVar('--grid-opacity-pct', this.value + '%'); document.getElementById('val-grid-op').innerText = this.value + '%';">
+                </div>
+
+                <div class="control-group border-none">
+                    <label class="input-label !mb-0"><span>Print Noise Density</span></label>
+                    <input type="range" min="0" max="0.5" step="0.02" value="0.08" class="mb-4" oninput="updateCSSVar('--noise-intensity', this.value);">
+                </div>
+            </div>
+
+        </aside>
+    </div>
+
+    <script>
+        // Utilities
+        function updateCSSVar(name, value) { document.documentElement.style.setProperty(name, value); }
+        const UI = {
+            switchTab(tabId) {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                event.target.classList.add('active');
+                document.getElementById('tab-' + tabId).classList.add('active');
+            }
+        };
+
+        /**
+         * DECOUPLED STATE ENGINE
+         */
+        const Engine = {
+            harmonics: [10, 12.5, 20, 25, 33.33, 40, 50, 60, 61.8, 66.66, 75, 80, 87.5],
+            
+            // The master state object containing all 4 independent layers
+            State: {
+                content: {
+                    id: "001",
+                    concept: "CUSTODY",
+                    title: ["SELF", "CUSTODY"],
+                    stack: ["SE", "LF", "CUST", "ODY"],
+                    payload: "Architecture of Ownership",
+                    desc: "Every user faces the same problem: trust. Without cryptographic self-sovereignty, assets float arbitrarily on centralized ledgers.",
+                    meta: "SECP256K1"
+                },
+                style: { movement: "swiss" },
+                architecture: { layout: "anchor" },
+                physics: { bg: "#F4F4F4", ink: "#121212", accent: "#DE3824", v1: 25, v2: 75, h1: 25, h2: 75, h3: 50, stagger: 15, margin: 3 }
+            },
+
+            init() { 
+                this.syncUI();
+                this.render(); 
+            },
+
+            // Universal update function
+            updateState(layer, key, value) {
+                if(layer === 'content') {
+                    if(key === 'title0') this.State.content.title[0] = value;
+                    else if(key === 'title1') this.State.content.title[1] = value;
+                    else this.State.content[key] = value;
+                } else {
+                    this.State[layer][key] = value;
+                }
+
+                // If updating physics variables, push instantly to CSS for smooth performance
+                if(layer === 'physics') {
+                    if(['bg', 'ink', 'accent'].includes(key)) {
+                        updateCSSVar(`--${key}-color`, value);
+                    } else if (key === 'margin') {
+                        updateCSSVar(`--m`, value);
+                        document.getElementById('val-margin').innerText = value + 'cqw';
+                    } else {
+                        updateCSSVar(`--${key}`, value);
+                    }
+                }
+
+                this.render();
+            },
+
+            // Hard load entirely new data from AI
+            loadAIPayload(dataObj) {
+                this.State.content = {
+                    id: dataObj.id, concept: dataObj.concept, title: dataObj.title, 
+                    stack: dataObj.stack, payload: dataObj.payload, desc: dataObj.desc, meta: dataObj.meta
+                };
+                this.State.style.movement = dataObj.styleMovement;
+                this.State.architecture.layout = dataObj.architectureLayout;
+                
+                this.State.physics.bg = dataObj.colors.bg;
+                this.State.physics.ink = dataObj.colors.ink;
+                this.State.physics.accent = dataObj.colors.accent;
+
+                // Auto-scale title if huge
+                const titleLength = dataObj.title.join('').length;
+                let smartScale = 1;
+                if (titleLength > 12) smartScale = 12 / titleLength; 
+                updateCSSVar('--smart-title-scale', smartScale);
+
+                this.mutateHarmonics(); // Generate fresh coordinates
+                this.syncUI();
+            },
+
+            getHarmonic(min, max) {
+                const valid = this.harmonics.filter(h => h >= min && h <= max);
+                return valid.length > 0 ? valid[Math.floor(Math.random() * valid.length)] : min;
+            },
+
+            mutateHarmonics() {
+                const layout = this.State.architecture.layout;
+                let phys = this.State.physics;
+                
+                switch(layout) {
+                    case 'anchor':
+                        phys.v1 = this.getHarmonic(10, 40); phys.v2 = this.getHarmonic(60, 90);
+                        phys.h1 = this.getHarmonic(12.5, 40); phys.h2 = this.getHarmonic(60, 87.5);
+                        break;
+                    case 'matrix':
+                        phys.v1 = this.getHarmonic(20, 50); phys.v2 = this.getHarmonic(phys.v1 + 10, 80);
+                        phys.h1 = this.getHarmonic(10, 33.33); phys.h2 = this.getHarmonic(phys.h1 + 10, 66.66);
+                        break;
+                    case 'brutalist':
+                        phys.v1 = this.getHarmonic(10, 33); phys.v2 = this.getHarmonic(40, 60);
+                        phys.v3 = this.getHarmonic(66, 90); phys.stagger = this.getHarmonic(5, 20);
+                        break;
+                    case 'strict-4-col':
+                        phys.v1 = this.getHarmonic(12.5, 33.33); phys.v2 = this.getHarmonic(phys.v1 + 10, 61.8);
+                        phys.v3 = this.getHarmonic(66.66, 87.5); phys.h1 = this.getHarmonic(20, 50); phys.h2 = this.getHarmonic(60, 87.5);
+                        break;
+                    case 'type-block':
+                        phys.v1 = this.getHarmonic(33.33, 66.66); phys.h1 = this.getHarmonic(10, 33.33);
+                        break;
+                }
+
+                // Push to CSS
+                ['v1', 'v2', 'v3', 'h1', 'h2', 'h3', 'stagger'].forEach(k => {
+                    if(phys[k]) updateCSSVar(`--${k}`, phys[k]);
+                });
+                
+                // Update sliders
+                if(document.getElementById('ctrl-v1')) document.getElementById('ctrl-v1').value = phys.v1 || 0;
+                if(document.getElementById('ctrl-v2')) document.getElementById('ctrl-v2').value = phys.v2 || 0;
+                if(document.getElementById('ctrl-h1')) document.getElementById('ctrl-h1').value = phys.h1 || 0;
+                
+                this.render();
+            },
+
+            syncUI() {
+                const s = this.State;
+                document.getElementById('ctrl-movement').value = s.style.movement;
+                document.getElementById('ctrl-layout').value = s.architecture.layout;
+                document.getElementById('ctrl-bg').value = s.physics.bg;
+                document.getElementById('ctrl-ink').value = s.physics.ink;
+                document.getElementById('ctrl-accent').value = s.physics.accent;
+                
+                updateCSSVar('--bg-color', s.physics.bg);
+                updateCSSVar('--ink-color', s.physics.ink);
+                updateCSSVar('--accent-color', s.physics.accent);
+
+                const manT1 = document.getElementById('man-t1');
+                const manT2 = document.getElementById('man-t2');
+                const manPayload = document.getElementById('man-payload');
+                if(manT1) manT1.value = s.content.title[0];
+                if(manT2) manT2.value = s.content.title[1];
+                if(manPayload) manPayload.value = s.content.payload;
+
+                document.getElementById('ai-payload-preview').innerHTML = `<span class="text-[var(--accent-color)]">${s.content.id} // ${s.content.concept}</span><br><span class="opacity-50 mt-1 block leading-tight truncate">${s.content.desc}</span>`;
+            },
+
+            render() {
+                const c = this.State.content;
+                const layout = this.State.architecture.layout;
+                const canvas = document.getElementById('render-target');
+                
+                // Apply the Movement Skin!
+                canvas.setAttribute('data-movement', this.State.style.movement);
+
+                let html = '';
+                html += `<div id="micro-grid" class="micro-grid" data-style="none"></div><div class="safe-area">`;
+
+                if (layout === 'anchor') {
+                    html += `
+                        <div class="grid-line-v fluid-element" style="left: calc(var(--v1) * 1%);"></div>
+                        <div class="grid-line-v fluid-element" style="left: calc(var(--v2) * 1%);"></div>
+                        <div class="grid-line-h fluid-element" style="top: calc(var(--h1) * 1%);"></div>
+                        <div class="grid-line-h fluid-element" style="top: calc(var(--h2) * 1%);"></div>
+                        
+                        <div class="absolute top-0 left-0 z-10"><h1 class="t-massive tracking-tighter fluid-element">${c.title[0]}</h1></div>
+                        <div class="absolute fluid-element z-10" style="top: calc(var(--h1) * 1% - 1cqw); left: calc(var(--v1) * 1%);"><h1 class="t-massive tracking-tighter pt-[2cqw]">${c.title[1]}</h1></div>
+                        
+                        <div class="shape-cross fluid-element z-10" style="top: calc(var(--h2) * 1%); left: calc(var(--v2) * 1%);"></div>
+                        <div class="absolute geo-element fluid-element z-10" style="width: 4cqw; height: 4cqw; top: calc(var(--h2) * 1% - 10cqw); right: 0;"></div>
+                        
+                        <div class="absolute fluid-element w-[40%] z-10" style="top: calc(var(--h2) * 1% + 2cqw); left: calc(var(--v1) * 1% + 2cqw);">
+                            <p class="t-body font-bold uppercase mb-[1cqw] text-[var(--muted-ink)]">${c.payload}</p><p class="t-body">${c.desc}</p>
+                        </div>`;
+                } 
+                else if (layout === 'matrix') {
+                    html += `
+                        <div class="grid-line-v fluid-element" style="left: calc(var(--v1) * 1%);"></div>
+                        <div class="grid-line-v fluid-element" style="left: calc(var(--v2) * 1%);"></div>
+                        <div class="grid-line-h fluid-element" style="top: calc(var(--h1) * 1%);"></div>
+                        <div class="grid-line-h fluid-element" style="top: calc(var(--h2) * 1%);"></div>
+                        
+                        <div class="absolute top-0 left-0 w-full fluid-element flex t-body z-10" style="height: calc(var(--h1) * 1%);">
+                            <div class="fluid-element border-r border-[var(--grid-thickness)] border-[var(--grid-style)] border-[var(--grid-color)] font-bold p-[2cqw]" style="width: calc(var(--v1) * 1%);">${c.concept}</div>
+                            <div class="fluid-element p-[2cqw] text-[var(--muted-ink)]" style="width: calc((100 - var(--v1)) * 1%);">${c.desc}</div>
+                        </div>
+                        
+                        <div class="absolute left-0 w-full p-[2cqw] z-10 fluid-element" style="top: calc(var(--h1) * 1%);"><h1 class="t-display tracking-tighter pt-[1cqw]">${c.title[0]}<br>${c.title[1]}</h1></div>
+                        <div class="absolute z-10 fluid-element" style="top: calc(var(--h2) * 1% + 2cqw); left: calc(var(--v1) * 1% + 2cqw);"><p class="t-mono font-bold uppercase text-[var(--accent-color)]">${c.payload}</p></div>`;
+                } 
+                else if (layout === 'brutalist') {
+                    html += `
+                        <div class="grid-line-v fluid-element" style="left: calc(var(--v1) * 1%);"></div>
+                        <div class="grid-line-v fluid-element" style="left: calc(var(--v2) * 1%);"></div>
+                        <div class="grid-line-v fluid-element" style="left: calc(var(--v3) * 1%);"></div>
+                        
+                        <div class="absolute top-0 left-0 flex flex-col z-10 fluid-element">
+                            <h1 class="t-stack fluid-element" style="margin-left: 0;">${c.stack[0]}</h1>
+                            <h1 class="t-stack fluid-element" style="margin-left: calc(var(--stagger) * 1%);">${c.stack[1]}</h1>
+                            <h1 class="t-stack fluid-element" style="margin-left: calc(var(--stagger) * 2%);">${c.stack[2]}</h1>
+                            <h1 class="t-stack fluid-element" style="margin-left: calc(var(--stagger) * 1%);">${c.stack[3]}</h1>
+                        </div>
+                        <div class="absolute w-[60%] z-10 fluid-element" style="bottom: 0; left: calc(var(--v1) * 1%);">
+                            <p class="t-display !font-normal !text-[4cqw] text-[var(--muted-ink)]">${c.desc}</p>
+                        </div>`;
+                }
+                else if (layout === 'strict-4-col') {
+                    html += `
+                        <div class="grid-line-v fluid-element" style="left: calc(var(--v1) * 1%);"></div>
+                        <div class="grid-line-v fluid-element" style="left: calc(var(--v2) * 1%);"></div>
+                        <div class="grid-line-v fluid-element" style="left: calc(var(--v3) * 1%);"></div>
+                        <div class="grid-line-h fluid-element" style="top: calc(var(--h1) * 1%);"></div>
+                        <div class="grid-line-h fluid-element" style="top: calc(var(--h2) * 1%);"></div>
+                        
+                        <div class="absolute top-0 left-0 z-10 w-full">
+                            <h1 class="t-massive tracking-tighter">${c.title[0]}</h1>
+                            <h1 class="t-massive tracking-tighter -mt-[2cqw]">${c.title[1]}</h1>
+                        </div>
+                        <div class="absolute geo-element z-0 fluid-element" style="top: calc(var(--h1) * 1%); left: calc(var(--v2) * 1%); width: calc((var(--v3) - var(--v2)) * 1%); height: calc((var(--h2) - var(--h1)) * 1%);"></div>
+                        <div class="absolute w-[60%] z-10 fluid-element" style="top: calc(var(--h2) * 1% + 2cqw); left: calc(var(--v1) * 1%);">
+                            <p class="t-body font-bold mb-[1cqw] uppercase text-[var(--muted-ink)]">${c.payload}</p><p class="t-body">${c.desc}</p>
+                        </div>`;
+                } 
+                else if (layout === 'type-block') {
+                    let denseBlock = "";
+                    for(let i=0; i<30; i++) denseBlock += (c.meta.replace(/\s/g, '')).toUpperCase() + " ";
+                    html += `
+                        <div class="grid-line-v fluid-element" style="left: calc(var(--v1) * 1%);"></div>
+                        <div class="grid-line-h fluid-element" style="top: calc(var(--h1) * 1%);"></div>
+                        <div class="absolute top-0 left-0 z-10">
+                            <h1 class="t-display !text-[12cqw] tracking-tighter">${c.title[0]}</h1>
+                            <h1 class="t-display !text-[12cqw] tracking-tighter -mt-[1cqw] text-[var(--accent-color)]">${c.title[1]}</h1>
+                        </div>
+                        <div class="absolute w-[60%] h-[75cqh] z-0 overflow-hidden fluid-element" style="top: calc(var(--h1) * 1% + 2cqw); left: calc(var(--v1) * 1% + 2cqw);">
+                            <p class="t-mono !text-[1.5cqw] break-all opacity-20 text-justify leading-tight">${denseBlock}</p>
+                        </div>
+                        <div class="absolute bottom-0 left-0 w-[50%] z-10">
+                            <p class="t-body font-bold uppercase mb-[1cqw] text-[var(--accent-color)]">${c.payload}</p><p class="t-body opacity-80">${c.desc}</p>
+                        </div>`;
+                }
+
+                html += `</div>`; // End safe-area
+
+                // Universal Overlays
+                html += `
+                    <div class="absolute top-[2cqw] right-[2cqw] z-50 text-right pointer-events-none">
+                        <p class="t-mono font-bold text-[1.5cqw] text-[var(--muted-ink)] uppercase">ID_${c.id}</p>
+                        <p class="t-mono text-[1cqw] text-[var(--muted-ink)] mt-1">${c.meta}</p>
+                    </div>
+                    <div class="absolute bottom-[2cqw] right-[2cqw] z-50 pointer-events-none">
+                        <p class="t-mono font-bold text-[2cqw] text-[var(--accent-color)] mix-blend-difference">a_o</p>
+                    </div>
+                    <div class="noise"></div>
+                `;
+
+                canvas.innerHTML = html;
+            }
+        };
+
+        /**
+         * AI SEMANTIC CURATOR (PROMPT ENGINEERING)
+         */
+        const AI = {
+            async generateTheme() {
+                const promptInput = document.getElementById('ai-prompt').value;
+                if(!promptInput) return;
+
+                const btn = document.getElementById('btn-generate');
+                const loader = document.getElementById('ai-loader');
+                btn.disabled = true;
+                btn.querySelector('span').innerText = "Curating...";
+                loader.style.display = 'block';
+
+                const apiKey = ""; // API KEY GOES HERE IF EXPORTING
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                
+                const systemPrompt = `You are an avant-garde Art Director. The user provides a thematic concept. 
+                1. Write brutalist, objective copy for a poster.
+                2. Select an Art Movement (styleMovement): 
+                   - 'swiss' (orderly, clean, infrastructure)
+                   - 'acid' (cyberpunk, hallucinatory, dark/neon)
+                   - 'brutalism' (punk, raw, rebellious)
+                   - 'terminal' (code, data, pure tech).
+                3. Select a Layout (architectureLayout): 'anchor', 'matrix', 'brutalist', 'strict-4-col', 'type-block'.
+                4. Select a hex color palette that matches the movement perfectly. Contrast is key.`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: promptInput }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                id: { type: "STRING", description: "3 digit serial e.g. 042" },
+                                concept: { type: "STRING" },
+                                title: { type: "ARRAY", items: { type: "STRING" }, description: "Massive title broken into exactly 2 lines" },
+                                stack: { type: "ARRAY", items: { type: "STRING" }, description: "Massive title broken into exactly 4 syllables" },
+                                payload: { type: "STRING" },
+                                desc: { type: "STRING" },
+                                meta: { type: "STRING" },
+                                styleMovement: { type: "STRING", description: "swiss, acid, brutalism, or terminal" },
+                                architectureLayout: { type: "STRING", description: "anchor, matrix, brutalist, strict-4-col, or type-block" },
+                                colors: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        bg: { type: "STRING", description: "Hex color" },
+                                        ink: { type: "STRING", description: "Hex color" },
+                                        accent: { type: "STRING", description: "Hex color" }
+                                    }
+                                }
+                            },
+                            required: ["id", "concept", "title", "stack", "payload", "desc", "meta", "styleMovement", "architectureLayout", "colors"]
+                        }
+                    }
+                };
+
+                try {
+                    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    const result = await response.json();
+                    const textData = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if(textData) {
+                        Engine.loadAIPayload(JSON.parse(textData));
+                    }
+                } catch (e) {
+                    console.error("AI Generation failed:", e);
+                    alert("Failed to synthesize concept. Provide API key if exported.");
+                } finally {
+                    btn.disabled = false;
+                    btn.querySelector('span').innerText = "Synthesize Concept";
+                    loader.style.display = 'none';
+                }
+            }
+        };
+
+        Engine.init();
+
+    </script>
+</body>
+</html>
